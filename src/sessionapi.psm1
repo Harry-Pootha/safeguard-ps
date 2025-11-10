@@ -17,7 +17,8 @@ function Connect-Sps
         [Parameter(Mandatory=$true,Position=2)]
         [SecureString]$SessionPassword,
         [Parameter(Mandatory=$false)]
-        [switch]$Insecure
+        [switch]$Insecure,
+        [switch]$LocalLogin
     )
 
     if (-not $PSBoundParameters.ContainsKey("ErrorAction")) { $ErrorActionPreference = "Stop" }
@@ -37,7 +38,11 @@ function Connect-Sps
     {
         $local:BasicAuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $SessionUsername, $local:PasswordPlainText)))
         Remove-Variable -Scope local PasswordPlainText
-        Invoke-RestMethod -UserAgent $script:SpsUserAgent -Uri "https://$SessionMaster/api/authentication" -SessionVariable HttpSession `
+        $apiUrl = "https://$SessionMaster/api/authentication"
+        if ($LocalLogin) {
+            $apiUrl += "?login_method=local"
+        }
+        Invoke-RestMethod -UserAgent $script:SpsUserAgent -Uri $apiUrl -SessionVariable HttpSession `
             -Headers @{ Authorization = ("Basic {0}" -f $local:BasicAuthInfo) } | Write-Verbose
     }
     catch
@@ -506,6 +511,9 @@ IP address or hostname of a Safeguard SPS appliance.
 .PARAMETER Insecure
 Ignore verification of Safeguard SPS appliance SSL certificate--will be ignored for entire session.
 
+.PARAMETER LocalLogin
+Enable authentication from the local database.
+
 .PARAMETER Username
 The username to authenticate as.
 
@@ -540,7 +548,8 @@ function Connect-SafeguardSps
         [Parameter(Mandatory=$false)]
         [SecureString]$Password,
         [Parameter(Mandatory=$false)]
-        [switch]$Insecure
+        [switch]$Insecure,
+        [switch]$LocalLogin
     )
 
     if (-not $PSBoundParameters.ContainsKey("ErrorAction")) { $ErrorActionPreference = "Stop" }
@@ -551,7 +560,7 @@ function Connect-SafeguardSps
         $Password = (Read-Host "Password" -AsSecureString)
     }
 
-    $local:HttpSession = (Connect-Sps -SessionMaster $Appliance -SessionUsername $Username -SessionPassword $Password -Insecure:$Insecure)
+    $local:HttpSession = (Connect-Sps -SessionMaster $Appliance -SessionUsername $Username -SessionPassword $Password -Insecure:$Insecure -LocalLogin:$LocalLogin)
     Set-Variable -Name "SafeguardSpsSession" -Scope Global -Value @{
         "Appliance" = $Appliance;
         "Insecure" = $Insecure;
